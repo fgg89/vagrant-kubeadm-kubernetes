@@ -6,19 +6,15 @@ set -euxo pipefail
 
 config_path="/vagrant/configs"
 
-DASHBOARD_VERSION=$(grep -E '^\s*dashboard:' /vagrant/settings.yaml | sed -E -e 's/[^:]+: *//' -e 's/\r$//')
-if [ -n "${DASHBOARD_VERSION}" ]; then
-  while sudo -i -u vagrant kubectl get pods -A -l k8s-app=metrics-server | awk 'split($3, a, "/") && a[1] != a[2] { print $0; }' | grep -v "RESTARTS"; do
-    echo 'Waiting for metrics server to be ready...'
-    sleep 5
-  done
-  echo 'Metrics server is ready. Installing dashboard...'
+sudo -i -u vagrant kubectl create namespace kubernetes-dashboard
 
-  sudo -i -u vagrant kubectl create namespace kubernetes-dashboard
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
 
-  echo "Creating the dashboard user..."
+echo "Creating the dashboard user..."
 
-  cat <<EOF | sudo -i -u vagrant kubectl apply -f -
+cat <<EOF | sudo -i -u vagrant kubectl apply -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -26,7 +22,7 @@ metadata:
   namespace: kubernetes-dashboard
 EOF
 
-  cat <<EOF | sudo -i -u vagrant kubectl apply -f -
+cat <<EOF | sudo -i -u vagrant kubectl apply -f -
 apiVersion: v1
 kind: Secret
 type: kubernetes.io/service-account-token
@@ -37,7 +33,7 @@ metadata:
     kubernetes.io/service-account.name: admin-user
 EOF
 
-  cat <<EOF | sudo -i -u vagrant kubectl apply -f -
+cat <<EOF | sudo -i -u vagrant kubectl apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -52,14 +48,74 @@ subjects:
   namespace: kubernetes-dashboard
 EOF
 
-  echo "Deploying the dashboard..."
-  sudo -i -u vagrant kubectl apply -f "https://raw.githubusercontent.com/kubernetes/dashboard/v${DASHBOARD_VERSION}/aio/deploy/recommended.yaml"
+echo "Deploying the dashboard..."
+# Add kubernetes-dashboard repository
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+# Deploy a Helm Release named "kubernetes-dashboard" using the kubernetes-dashboard chart
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
 
-  sudo -i -u vagrant kubectl -n kubernetes-dashboard get secret/admin-user -o go-template="{{.data.token | base64decode}}" >> "${config_path}/token"
-  echo "The following token was also saved to: configs/token"
-  cat "${config_path}/token"
-  echo "
-Use it to log in at:
-http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/#/overview?namespace=kubernetes-dashboard
-"
-fi
+# Run from server
+# kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
+
+sudo -i -u vagrant kubectl -n kubernetes-dashboard get secret/admin-user -o go-template="{{.data.token | base64decode}}" >> "${config_path}/token"
+echo "The following token was also saved to: configs/token"
+cat "${config_path}/token"
+
+
+# DASHBOARD_VERSION=$(grep -E '^\s*dashboard:' /vagrant/settings.yaml | sed -E -e 's/[^:]+: *//' -e 's/\r$//')
+# if [ -n "${DASHBOARD_VERSION}" ]; then
+#   while sudo -i -u vagrant kubectl get pods -A -l k8s-app=metrics-server | awk 'split($3, a, "/") && a[1] != a[2] { print $0; }' | grep -v "RESTARTS"; do
+#     echo 'Waiting for metrics server to be ready...'
+#     sleep 5
+#   done
+#   echo 'Metrics server is ready. Installing dashboard...'
+# 
+#   sudo -i -u vagrant kubectl create namespace kubernetes-dashboard
+# 
+#   echo "Creating the dashboard user..."
+# 
+#   cat <<EOF | sudo -i -u vagrant kubectl apply -f -
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: admin-user
+#   namespace: kubernetes-dashboard
+# EOF
+# 
+#   cat <<EOF | sudo -i -u vagrant kubectl apply -f -
+# apiVersion: v1
+# kind: Secret
+# type: kubernetes.io/service-account-token
+# metadata:
+#   name: admin-user
+#   namespace: kubernetes-dashboard
+#   annotations:
+#     kubernetes.io/service-account.name: admin-user
+# EOF
+# 
+#   cat <<EOF | sudo -i -u vagrant kubectl apply -f -
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: admin-user
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: ClusterRole
+#   name: cluster-admin
+# subjects:
+# - kind: ServiceAccount
+#   name: admin-user
+#   namespace: kubernetes-dashboard
+# EOF
+# 
+#   echo "Deploying the dashboard..."
+#   sudo -i -u vagrant kubectl apply -f "https://raw.githubusercontent.com/kubernetes/dashboard/v${DASHBOARD_VERSION}/aio/deploy/recommended.yaml"
+# 
+#   sudo -i -u vagrant kubectl -n kubernetes-dashboard get secret/admin-user -o go-template="{{.data.token | base64decode}}" >> "${config_path}/token"
+#   echo "The following token was also saved to: configs/token"
+#   cat "${config_path}/token"
+#   echo "
+# Use it to log in at:
+# http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/#/overview?namespace=kubernetes-dashboard
+# "
+# fi

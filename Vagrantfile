@@ -29,6 +29,7 @@ Vagrant.configure("2") do |config|
   config.vm.define "controlplane" do |controlplane|
     controlplane.vm.hostname = "controlplane"
     controlplane.vm.network "private_network", ip: settings["network"]["control_ip"]
+    # controlplane.vm.network "public_network", bridge: settings["network"]["bridge_name"]
     if settings["shared_folders"]
       settings["shared_folders"].each do |shared_folder|
         controlplane.vm.synced_folder shared_folder["host_path"], shared_folder["vm_path"]
@@ -58,6 +59,9 @@ Vagrant.configure("2") do |config|
         "SERVICE_CIDR" => settings["network"]["service_cidr"]
       },
       path: "scripts/master.sh"
+    if settings["software"]["dashboard"] and settings["software"]["dashboard"] != ""
+      controlplane.vm.provision "shell", path: "scripts/dashboard.sh"
+    end
   end
 
   (1..NUM_WORKER_NODES).each do |i|
@@ -89,10 +93,18 @@ Vagrant.configure("2") do |config|
       node.vm.provision "shell", path: "scripts/node.sh"
 
       # Only install the dashboard after provisioning the last worker (and when enabled).
-      if i == NUM_WORKER_NODES and settings["software"]["dashboard"] and settings["software"]["dashboard"] != ""
-        node.vm.provision "shell", path: "scripts/dashboard.sh"
-      end
-    end
+      # if i == NUM_WORKER_NODES and settings["software"]["dashboard"] and settings["software"]["dashboard"] != ""
+      #   node.vm.provision "shell", path: "scripts/dashboard.sh"
+      # end
 
+      # Restart dns
+      # if i == NUM_WORKER_NODES
+      #   config.trigger.after :provision do
+      #     system(<<-SCRIPT)
+      #       kubectl -n kube-system rollout restart deployment coredns
+      #     SCRIPT
+      #   end
+      # end
+    end
   end
 end 
