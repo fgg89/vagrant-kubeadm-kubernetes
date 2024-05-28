@@ -82,3 +82,6 @@ cat > /etc/default/kubelet << EOF
 KUBELET_EXTRA_ARGS=--node-ip=$local_ip
 ${ENVIRONMENT}
 EOF
+
+# Path for Persistent Volumes
+sudo mkdir -p /mnt/pv

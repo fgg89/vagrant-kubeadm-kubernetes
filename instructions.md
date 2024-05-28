@@ -1,3 +1,11 @@
+Links
+-----
+
+https://github.com/fgg89/vagrant-kubeadm-kubernetes/tree/fran
+https://devopscube.com/kubernetes-cluster-vagrant/
+
+init.sh
+
 ssh -L 8443:localhost:8443 piernik (ssh tunnel for dashboard access from localhost)
 
 1. vagrant up 

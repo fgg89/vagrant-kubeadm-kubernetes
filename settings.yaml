@@ -11,6 +11,8 @@ cluster_name: Kubernetes Cluster
 network:
   # Worker IPs are simply incremented from the control IP.
   control_ip: 10.0.0.10
+  control_ip_lan: 192.168.1.70
+  nodes_ip_lan: ["192.168.1.71", "192.168.1.72"]
   dns_servers:
     - 8.8.8.8
     - 1.1.1.1
@@ -32,6 +34,11 @@ nodes:
 # shared_folders:
 #   - host_path: ../images
 #     vm_path: /vagrant/images
+shared_folders:
+  - host_path: pv
+    vm_path: /mnt/pv
+  # - host_path: /mnt/Markus
+  #   vm_path: /mnt/pv
 software:
   box: bento/ubuntu-22.04
   calico: 3.26.0
